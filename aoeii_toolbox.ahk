@@ -12,7 +12,7 @@ toolsGui.BackColor := 'FFFFFF'
 toolsGui.MarginX := toolsGui.MarginY := 10
 toolsGui.Show('w1000 h500')
 
-gameGroup := toolsGui.AddGroupBox('w200 h200', 'My Game')
+gameGroup := toolsGui.AddGroupBox('w200 h200 cff0000', 'My Game')
 locateGame := toolsGui.AddButton('xp+25 yp+40 w150', 'Locate...')
 locateGame.OnEvent('Click', (*) => aoeii_toolbox.gameSelector.select())
 repairGame := toolsGui.AddButton('wp', 'Repair')
@@ -45,7 +45,7 @@ class aoeii_toolbox {
 
     static appPackage() {
         content := ''
-        content := FileExist('package.json') ? FileRead('package.json') : this.fetch(this.package)
+        content := FileExist('package.json') ? FileRead('package.json') : this.fetch(this.packageLink)
         return this.jsonLoad(content)
     }
 
