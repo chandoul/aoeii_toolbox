@@ -2,6 +2,7 @@
 #Requires AutoHotkey v2.0
 
 #Include <cJSON>
+#Include <CNG>
 
 toolsGui := Gui(, Format(
     '{} v{}', aoeii_toolbox.package['name']
@@ -28,6 +29,7 @@ statusBar.SetText(
 
 #HotIf WinActive(toolsGui)
 ^r:: Reload()
+^g:: aoeii_toolbox.utils.generateFolderHash()
 #HotIf
 
 class aoeii_toolbox {
@@ -36,51 +38,72 @@ class aoeii_toolbox {
     static userPackagePath => A_AppData '\aoeii_toolbox\package.json'
     static userPackage => this.appUserPackage()
 
-    static appUserPackage() {
+    static __New() {
         SplitPath(this.userPackagePath, , &dir)
         DirCreate(dir)
-        content := FileExist(this.userPackagePath) ? FileRead(this.userPackagePath) : ''
-        return this.jsonLoad(content)
+    }
+
+    static appUserPackage() {
+        try return JSON.LoadFile(this.userPackagePath)
+        catch
+            return false
     }
 
     static appPackage() {
-        content := ''
-        content := FileExist('package.json') ? FileRead('package.json') : this.fetch(this.packageLink)
-        return this.jsonLoad(content)
+        try return JSON.Load(this.utils.fetch(this.packageLink))
+        catch
+            try return JSON.LoadFile('package.json')
+            catch
+                return false
     }
 
-    static fetch(link) {
-        try {
-            whr := ComObject("WinHttp.WinHttpRequest.5.1")
-            whr.Open("GET", link, True)
-            whr.Send()
-            whr.WaitForResponse()
-            text := whr.ResponseText
-            whr := ''
-        } catch {
-            Download(link, A_Temp '\link.txt')
-            text := FileRead(A_Temp '\link.txt')
+    class utils {
+        static fetch(link) {
+            try {
+                whr := ComObject("WinHttp.WinHttpRequest.5.1")
+                whr.Open("GET", link, True)
+                whr.Send()
+                whr.WaitForResponse()
+                text := whr.ResponseText
+                whr := ''
+            } catch {
+                Download(link, A_Temp '\link.txt')
+                text := FileRead(A_Temp '\link.txt')
+            }
+            return text
         }
-        return text
-    }
 
-    static jsonLoad(content) {
-        obj := Map()
-        try obj := JSON.Load(content)
-        return obj
-    }
+        static jsonAppend(key, value, jsonPath := aoeii_toolbox.userPackagePath) {
+            try jsonData := JSON.LoadFile(jsonPath)
+            catch
+                jsonData := Map()
+            jsonData[key] := value
+            JSON.DumpFile(jsonData, jsonPath, '`t')
+        }
 
-    static jsonAppend(key, value, jsonPath := this.userPackagePath) {
-        jsonData := this.jsonLoad(FileExist(jsonPath) ? FileRead(jsonPath) : '')
-        jsonData[key] := value
-        JSON.DumpFile(jsonData, jsonPath, '`t')
+        static generateFolderHash() {
+            folder := FileSelect('D')
+            SplitPath(folder, , &parent,, &name)
+            fileObj := FileOpen(parent '\' name '.json', 'w')
+            fileObj.Write('{`n')
+            loop files folder '\*.*', 'R' {
+                statusBar.SetText(A_LoopFileName '...')
+                md5 := Hash.File('MD5', A_loopFileFullPath)
+                filePath := StrReplace(A_loopFileFullPath, folder '\')
+                filePath := StrReplace(filePath, '\', '\\')
+                fileObj.Write(Format('`t"{}":"{}",`n', filePath, md5))
+            }
+            fileObj.Pos := fileObj.Pos - 2
+            fileObj.Write('`n}')
+            fileObj.Close()
+        }
     }
 
     class gameSelector {
         static select() {
             location := FileSelect('D')
             if this.valid(location)
-                aoeii_toolbox.jsonAppend('location', location)
+                aoeii_toolbox.utils.jsonAppend('location', location)
         }
 
         static valid(location) {
